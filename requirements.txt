@@ -1,0 +1,11 @@
+langchain
+langgraph
+faiss-cpu
+sentence-transformers
+pydantic
+numpy
+openai
+tiktoken
+ollama
+streamlit
+streamlit-chat
