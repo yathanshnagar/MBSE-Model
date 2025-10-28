@@ -9,7 +9,8 @@ from langgraph.graph import StateGraph, END
 from chains.symptom_chain import extract_symptoms
 from chains.triage_chain import classify_severity
 from chains.action_chain import execute_action_plan
-from chains.summary_chain import generate_summary
+# from chains.summary_chain import generate_summary
+from chains.summary_chain import generate_summaries
 
 from utils.json_store import create_case, load_case, update_case
 
@@ -104,22 +105,35 @@ def initialize_care_graph():
         return state
 
     def generate_node(state: CareState):
-        payload = {
-            "user_input": state.get("user_input"),
-            "symptoms": state.get("symptoms"),
-            "triage": state.get("triage"),
-            "action": state.get("action"),
-        }
-        summary = generate_summary(payload)
+        user_input = state.get("user_input", "")
+        symptoms = state.get("symptoms", {})
+        triage = state.get("triage", {})
+        action = state.get("action", {})
 
-        # Persist
+        from chains.summary_chain import generate_summaries
+
+        summary = generate_summaries(
+            user_input=user_input,
+            symptoms=symptoms,
+            triage_result=triage,
+            action_plan=action
+        )
+
+        # Persist for continuity
         case_id = state.get("case_id")
         if case_id:
+            from utils.json_store import load_case, update_case
             case = load_case(case_id)
             case["summary"] = summary
             update_case(case_id, case)
 
-        return {"summary": summary}
+        # Return structured output for frontend integration
+        return {
+            "summary": summary,
+            "symptoms": symptoms,
+            "triage": triage,
+            "action": action,
+        }
 
     def emergency_exit(state: CareState):
         # In this MVP, emergency path is represented by RED triage + action plan in the next node.
@@ -131,7 +145,7 @@ def initialize_care_graph():
     graph.add_node("classify_severity", classify_node)
     graph.add_node("execute_action", execute_node)
     graph.add_node("follow_up", follow_up)
-    graph.add_node("generate_summary", generate_node)
+    graph.add_node("generate_summaries", generate_node)
     graph.add_node("emergency_exit", emergency_exit)
 
     # ------------------- Edges -------------------
@@ -140,11 +154,11 @@ def initialize_care_graph():
     graph.add_edge("collect_symptoms", "classify_severity")
     graph.add_edge("classify_severity", "execute_action")
     graph.add_edge("execute_action", "follow_up")
-    graph.add_edge("follow_up", "generate_summary")
+    graph.add_edge("follow_up", "generate_summaries")
     graph.add_edge("classify_severity", "emergency_exit")  # kept for future branching
 
     # ------------------- Start/Finish -------------------
     graph.set_entry_point("collect_symptoms")
-    graph.set_finish_point("generate_summary")
+    graph.set_finish_point("generate_summaries")
 
     return graph
