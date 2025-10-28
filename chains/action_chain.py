@@ -1,14 +1,49 @@
 """
-action_chain.py — executes care pathway actions
-Phase 1: placeholder only
+action_chain.py — Executes care pathway actions using LLM-provided recommendations.
 """
 
-def execute_action_plan(triage_result: dict) -> dict:
+from typing import Dict, Any
+from datetime import datetime, timedelta
+
+
+def execute_action_plan(triage_result: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Based on triage result, choose an action:
-      - self-care
-      - referral
-      - emergency
-    Returns JSON-like dict describing action.
+    Use LLM-provided care_instructions to build the plan dynamically.
+    If the model did not supply them, fall back to minimal safety instructions.
     """
-    return {}
+    level = triage_result.get("severity_level", "UNKNOWN")
+    action = triage_result.get("recommended_action", "manual review")
+    llm_instructions = triage_result.get("care_instructions", [])
+
+    # If the LLM didn't include usable instructions, create a minimal fallback.
+    if not llm_instructions or not isinstance(llm_instructions, list):
+        llm_instructions = [
+            "Rest and hydrate.",
+            "If symptoms worsen, seek medical help promptly."
+        ]
+
+    # Decide follow-up timing
+    follow_up_due = None
+    if action == "self-care":
+        follow_up_due = (datetime.utcnow() + timedelta(hours=24)).isoformat()
+    elif action == "referral":
+        follow_up_due = (datetime.utcnow() + timedelta(hours=36)).isoformat()
+    elif action == "emergency":
+        follow_up_due = None  # no follow-up; immediate handover
+    else:
+        follow_up_due = (datetime.utcnow() + timedelta(hours=12)).isoformat()
+
+    # Build structured plan
+    plan = {
+        "action_type": action,
+        "tasks": llm_instructions,
+        "follow_up_due": follow_up_due
+    }
+
+    # For safety, always add a universal disclaimer
+    if "This information is not medical advice." not in " ".join(llm_instructions):
+        plan["tasks"].append(
+            "This information is not medical advice. Seek professional help if uncertain."
+        )
+
+    return plan

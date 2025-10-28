@@ -9,3 +9,15 @@ tiktoken
 ollama
 streamlit
 streamlit-chat
+
+langchain>=0.2.11
+langgraph>=0.2.3
+langchain-community>=0.2.10
+faiss-cpu>=1.8.0
+sentence-transformers>=3.0.1
+pydantic>=2.8.2
+numpy>=1.26.4
+ollama>=0.3.0
+tiktoken>=0.7.0
+
+# run pip install -r requirements.txt
